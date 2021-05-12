@@ -1,0 +1,40 @@
+git_branch() {
+    git branch --no-color 2>/dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/'
+}
+
+git_status() {
+    local status="$(git status --porcelain 2>/dev/null)"
+    local output=''
+    [[ -n $(egrep '^[MADRC]' <<<"$status") ]] && output="$output+"
+    [[ -n $(egrep '^.[MD]' <<<"$status") ]] && output="$output!"
+    [[ -n $(egrep '^\?\?' <<<"$status") ]] && output="$output?"
+    [[ -n $(git stash list) ]] && output="${output}S"
+    [[ -n $(git log --branches --not --remotes) ]] && output="${output}P"
+    [[ -n $output ]] && output="|$output"
+    echo $output
+}
+
+git_color() {
+    local staged=$([[ $1 =~ \+ ]] && echo yes)
+    local dirty=$([[ $1 =~ [!\?] ]] && echo yes)
+    if [[ -n $staged ]] && [[ -n $dirty ]]; then
+        echo -e '\033[33m'
+    elif [[ -n $staged ]]; then
+        echo -e '\033[32m'
+    elif [[ -n $dirty ]]; then
+        echo -e '\033[31m'
+    else
+        echo -e '\033[1;37m'
+    fi
+}
+
+git_prompt() {
+    local branch=$(git_branch)
+    if [[ -n $branch ]]; then
+        local state=$(git_status)
+	local color=$(git_color $state)
+	echo -e "\x01$color\x02[$branch$state]\x01\033[00m\x02"
+    fi
+}
+
+PS1='\[\033[0;34m\]\w$(git_prompt)\[\033[00m\]\$ '
